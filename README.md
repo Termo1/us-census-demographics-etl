@@ -182,3 +182,138 @@ FROM base_data b
 JOIN dim_state s ON b.state_fips = s.state_fips
 JOIN dim_county c ON b.county_fips_full = c.county_fips_full;
 ```
+
+---
+
+## 5. Vizualizacie
+
+### 5.1 Top 10 statov podla populacie
+
+```sql
+SELECT
+    s.state_name,
+    SUM(f.total_population) AS total_population,
+    COUNT(f.cbg_id) AS num_block_groups,
+    ROUND(AVG(f.median_age), 1) AS avg_median_age
+FROM fact_demographics f
+JOIN dim_state s ON f.state_id = s.state_id
+GROUP BY s.state_name
+ORDER BY total_population DESC
+LIMIT 10;
+```
+
+<p align="center">
+  <img src="img/graf1.png" alt="Population by State">
+  <br>
+  <em>Graf 1: Top 10 statov podla celkovej populacie</em>
+</p>
+
+**Interpretacia:** California, Texas a Florida su najludnatejsie staty USA. California ma vyrazne viac obyvatelov ako ostatne staty, co reflektuje jej ekonomicky vyznam a rozlohu.
+
+---
+
+### 5.2 Distribucia prijmu
+
+```sql
+SELECT
+    ib.bracket_label,
+    ib.income_bracket_id,
+    COUNT(f.cbg_id) AS num_block_groups,
+    SUM(f.total_population) AS total_population
+FROM fact_demographics f
+JOIN dim_income_bracket ib ON f.income_bracket_id = ib.income_bracket_id
+GROUP BY ib.bracket_label, ib.income_bracket_id
+ORDER BY ib.income_bracket_id;
+```
+
+<p align="center">
+  <img src="img/graf2.png" alt="Income Distribution">
+  <br>
+  <em>Graf 2: Distribucia prijmu domacnosti v USA</em>
+</p>
+
+**Interpretacia:** Vacsina oblastí ma stredne az vyssie prijmy. Kategorie $50,000 - $100,000 su najcastejsie, co naznacuje silnu strednu triedu v USA. Vysoke prijmy nad $200,000 su koncentrovane v mensine oblastí.
+
+---
+
+### 5.3 Priemerny vek podla statu
+
+```sql
+SELECT
+    s.state_name,
+    ROUND(AVG(f.median_age), 1) AS avg_median_age,
+    MIN(f.median_age) AS min_age,
+    MAX(f.median_age) AS max_age
+FROM fact_demographics f
+JOIN dim_state s ON f.state_id = s.state_id
+GROUP BY s.state_name
+ORDER BY avg_median_age DESC;
+```
+
+<p align="center">
+  <img src="img/graf3.png" alt="Age by State">
+  <br>
+  <em>Graf 3: Priemerny medianovy vek podla statu</em>
+</p>
+
+**Interpretacia:** Maine, Florida a Vermont maju najvyssí priemerny vek, co suvisí s vysokym podielom dochodcov (Florida ako destinacia pre seniorov). Utah ma naopak najmladšiu populaciu kvoli vysokej porodnosti.
+
+---
+
+### 5.4 Prijem vs Populacia (Scatter plot)
+
+```sql
+SELECT
+    s.state_name,
+    SUM(f.total_population) AS total_population,
+    ROUND(AVG(f.median_household_income), 0) AS avg_median_income
+FROM fact_demographics f
+JOIN dim_state s ON f.state_id = s.state_id
+GROUP BY s.state_name
+ORDER BY total_population DESC;
+```
+
+<p align="center">
+  <img src="img/graf4.png" alt="Income vs Population">
+  <br>
+  <em>Graf 4: Vztah medzi populaciou a priemernym prijmom statov</em>
+</p>
+
+**Interpretacia:** Nie je priamy vztah medzi velkostou statu a priemernym prijmom. Male staty ako Maryland a Massachusetts maju vyssie prijmy ako velke staty. Najludnatejsie staty (CA, TX, FL) maju rozne urovne prijmu.
+
+---
+
+### 5.5 Top 10 counties podla prijmu
+
+```sql
+SELECT
+    c.county_name,
+    s.state_abbr,
+    ROUND(AVG(f.median_household_income), 0) AS avg_median_income,
+    SUM(f.total_population) AS total_population,
+    COUNT(f.cbg_id) AS num_block_groups
+FROM fact_demographics f
+JOIN dim_county c ON f.county_id = c.county_id
+JOIN dim_state s ON c.state_id = s.state_id
+WHERE f.median_household_income IS NOT NULL
+GROUP BY c.county_name, s.state_abbr
+HAVING COUNT(f.cbg_id) >= 10
+ORDER BY avg_median_income DESC
+LIMIT 10;
+```
+
+<p align="center">
+  <img src="img/graf5.png" alt="Top Counties by Income">
+  <br>
+  <em>Graf 5: Top 10 najbohatších counties v USA</em>
+</p>
+
+**Interpretacia:** Loudoun County (VA), Falls Church (VA) a Arlington County (VA) su najbohatšie oblasti v USA, vsetky v blizkosti Washingtonu D.C. Toto reflektuje vysoke platy vo vladnom a technologickom sektore v okoli hlavneho mesta.
+
+---
+
+## Autor
+
+**Adam**
+
+Projekt vytvoreny v ramci predmetu Databazovy projekt, januar 2026.
