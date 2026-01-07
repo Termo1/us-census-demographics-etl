@@ -130,3 +130,15 @@ SELECT
 FROM stg_fips
 GROUP BY STATE_FIPS, STATE
 ORDER BY STATE_FIPS;
+
+-- Dimenzia: DIM_COUNTY (SCD Type 0)
+CREATE OR REPLACE TABLE dim_county AS
+SELECT
+    ROW_NUMBER() OVER (ORDER BY f.STATE_FIPS, f.COUNTY_FIPS) AS county_id,
+    f.STATE_FIPS || f.COUNTY_FIPS AS county_fips_full,
+    f.COUNTY_FIPS AS county_fips,
+    f.COUNTY AS county_name,
+    s.state_id,
+    f.CLASS_CODE AS class_code
+FROM stg_fips f
+JOIN dim_state s ON f.STATE_FIPS = s.state_fips;
