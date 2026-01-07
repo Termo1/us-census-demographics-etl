@@ -192,3 +192,127 @@ INSERT INTO dim_age_group VALUES
 (10, 65, 74, '65-74', 'Senior'),
 (11, 75, 84, '75-84', 'Senior'),
 (12, 85, NULL, '85+', 'Senior');
+
+-- ============================================
+-- LOAD PHASE: Fact Table with Window Functions
+-- ============================================
+
+CREATE OR REPLACE TABLE fact_demographics AS
+WITH base_data AS (
+    SELECT
+        p.CENSUS_BLOCK_GROUP AS cbg_id,
+        LEFT(p.CENSUS_BLOCK_GROUP, 2) AS state_fips,
+        LEFT(p.CENSUS_BLOCK_GROUP, 5) AS county_fips_full,
+
+        -- Population metriky
+        p.total_population,
+        p.male_population,
+        p.female_population,
+        p.median_age,
+
+        -- Income metriky
+        i.median_household_income,
+        i.total_households,
+
+        -- Percentualne vypocty
+        CASE WHEN p.total_population > 0
+            THEN ROUND(p.male_population * 100.0 / p.total_population, 2)
+            ELSE NULL END AS pct_male,
+        CASE WHEN p.total_population > 0
+            THEN ROUND(p.female_population * 100.0 / p.total_population, 2)
+            ELSE NULL END AS pct_female,
+
+        -- Income bracket determination
+        CASE
+            WHEN i.median_household_income < 10000 THEN 1
+            WHEN i.median_household_income < 15000 THEN 2
+            WHEN i.median_household_income < 20000 THEN 3
+            WHEN i.median_household_income < 25000 THEN 4
+            WHEN i.median_household_income < 30000 THEN 5
+            WHEN i.median_household_income < 35000 THEN 6
+            WHEN i.median_household_income < 40000 THEN 7
+            WHEN i.median_household_income < 45000 THEN 8
+            WHEN i.median_household_income < 50000 THEN 9
+            WHEN i.median_household_income < 60000 THEN 10
+            WHEN i.median_household_income < 75000 THEN 11
+            WHEN i.median_household_income < 100000 THEN 12
+            WHEN i.median_household_income < 125000 THEN 13
+            WHEN i.median_household_income < 150000 THEN 14
+            WHEN i.median_household_income < 200000 THEN 15
+            WHEN i.median_household_income >= 200000 THEN 16
+            ELSE NULL
+        END AS income_bracket_id
+
+    FROM stg_population p
+    LEFT JOIN stg_income i ON p.CENSUS_BLOCK_GROUP = i.CENSUS_BLOCK_GROUP
+    WHERE p.total_population > 0
+)
+
+SELECT
+    ROW_NUMBER() OVER (ORDER BY cbg_id) AS fact_id,
+    b.cbg_id,
+    s.state_id,
+    c.county_id,
+    b.income_bracket_id,
+
+    -- Metriky
+    b.total_population,
+    b.male_population,
+    b.female_population,
+    b.median_age,
+    b.median_household_income,
+    b.total_households,
+    b.pct_male,
+    b.pct_female,
+
+    -- ═══════════════════════════════════════════════════════════
+    -- WINDOW FUNCTIONS (POVINNA CAST!)
+    -- ═══════════════════════════════════════════════════════════
+
+    -- 1. RANK() - Poradie podla populacie v ramci statu
+    RANK() OVER (
+        PARTITION BY s.state_id
+        ORDER BY b.total_population DESC
+    ) AS population_rank_in_state,
+
+    -- 2. RANK() - Poradie podla prijmu v ramci statu
+    RANK() OVER (
+        PARTITION BY s.state_id
+        ORDER BY b.median_household_income DESC NULLS LAST
+    ) AS income_rank_in_state,
+
+    -- 3. PERCENT_RANK() - Percentil populacie celonarodne
+    ROUND(PERCENT_RANK() OVER (
+        ORDER BY b.total_population
+    ), 4) AS population_percentile,
+
+    -- 4. PERCENT_RANK() - Percentil prijmu celonarodne
+    ROUND(PERCENT_RANK() OVER (
+        ORDER BY b.median_household_income NULLS FIRST
+    ), 4) AS income_percentile,
+
+    -- 5. SUM() OVER - Kumulativna populacia v ramci statu
+    SUM(b.total_population) OVER (
+        PARTITION BY s.state_id
+        ORDER BY b.cbg_id
+        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    ) AS cumulative_pop_in_state,
+
+    -- 6. AVG() OVER - Priemer prijmu v county
+    ROUND(AVG(b.median_household_income) OVER (
+        PARTITION BY c.county_id
+    ), 0) AS avg_income_in_county,
+
+    -- ═══════════════════════════════════════════════════════════
+
+    -- Metadata
+    2019 AS data_year,
+    CURRENT_TIMESTAMP() AS load_timestamp
+
+FROM base_data b
+JOIN dim_state s ON b.state_fips = s.state_fips
+JOIN dim_county c ON b.county_fips_full = c.county_fips_full;
+
+-- Verifikacia
+SELECT COUNT(*) AS total_facts FROM fact_demographics;
+SELECT * FROM fact_demographics LIMIT 10;
