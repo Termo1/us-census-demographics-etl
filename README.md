@@ -53,3 +53,30 @@ ERD diagram zobrazuje vztahy medzi zdrojovymi tabulkami v povodnej databaze Safe
   <br>
   <em>Obrazok 1: Entity-Relationship Diagram zdrojovych dat</em>
 </p>
+
+---
+
+## 3. Star Schema
+
+Star schema navrhnuty pre analyzu demografickych dat obsahuje 1 faktovu tabulku a 4 dimenzie (vsetky SCD Type 0).
+
+<p align="center">
+  <img src="img/Star_schema.png" alt="Star Schema">
+  <br>
+  <em>Obrazok 2: Star Schema dimenzionalneho modelu</em>
+</p>
+
+### Dimenzie
+
+| Dimenzia | Typ SCD | Popis | Pocet riadkov |
+|----------|---------|-------|---------------|
+| `dim_state` | SCD Type 0 | Staty USA | ~52 |
+| `dim_county` | SCD Type 0 | Counties | ~3,233 |
+| `dim_income_bracket` | SCD Type 0 | Prijmove kategorie | 16 |
+| `dim_age_group` | SCD Type 0 | Vekove skupiny | 12 |
+
+### Faktova tabulka
+
+| Tabulka | Popis | Pocet riadkov |
+|---------|-------|---------------|
+| `fact_demographics` | Demograficke metriky na urovni CBG | ~217,000 |
