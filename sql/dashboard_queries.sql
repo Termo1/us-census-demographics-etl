@@ -56,3 +56,21 @@ FROM fact_demographics f
 JOIN dim_state s ON f.state_id = s.state_id
 GROUP BY s.state_name
 ORDER BY total_population DESC;
+
+-- ============================================
+-- Visualization 5: Top 10 Counties by Income
+-- ============================================
+SELECT
+    c.county_name,
+    s.state_abbr,
+    ROUND(AVG(f.median_household_income), 0) AS avg_median_income,
+    SUM(f.total_population) AS total_population,
+    COUNT(f.cbg_id) AS num_block_groups
+FROM fact_demographics f
+JOIN dim_county c ON f.county_id = c.county_id
+JOIN dim_state s ON c.state_id = s.state_id
+WHERE f.median_household_income IS NOT NULL
+GROUP BY c.county_name, s.state_abbr
+HAVING COUNT(f.cbg_id) >= 10
+ORDER BY avg_median_income DESC
+LIMIT 10;
