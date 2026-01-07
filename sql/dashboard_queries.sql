@@ -18,3 +18,16 @@ JOIN dim_state s ON f.state_id = s.state_id
 GROUP BY s.state_name
 ORDER BY total_population DESC
 LIMIT 10;
+
+-- ============================================
+-- Visualization 2: Income Distribution
+-- ============================================
+SELECT
+    ib.bracket_label,
+    ib.income_bracket_id,
+    COUNT(f.cbg_id) AS num_block_groups,
+    SUM(f.total_population) AS total_population
+FROM fact_demographics f
+JOIN dim_income_bracket ib ON f.income_bracket_id = ib.income_bracket_id
+GROUP BY ib.bracket_label, ib.income_bracket_id
+ORDER BY ib.income_bracket_id;
