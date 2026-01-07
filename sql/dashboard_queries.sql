@@ -31,3 +31,16 @@ FROM fact_demographics f
 JOIN dim_income_bracket ib ON f.income_bracket_id = ib.income_bracket_id
 GROUP BY ib.bracket_label, ib.income_bracket_id
 ORDER BY ib.income_bracket_id;
+
+-- ============================================
+-- Visualization 3: Average Age by State
+-- ============================================
+SELECT
+    s.state_name,
+    ROUND(AVG(f.median_age), 1) AS avg_median_age,
+    MIN(f.median_age) AS min_age,
+    MAX(f.median_age) AS max_age
+FROM fact_demographics f
+JOIN dim_state s ON f.state_id = s.state_id
+GROUP BY s.state_name
+ORDER BY avg_median_age DESC;
