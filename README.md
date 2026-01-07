@@ -314,6 +314,6 @@ LIMIT 10;
 
 ## Autor
 
-**Adam**
+**Adam Buranský**
 
-Projekt vytvoreny v ramci predmetu Databazovy projekt, januar 2026.
+Projekt vytvoreny v ramci predmetu Databazove technologie, januar 2026.
