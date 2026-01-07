@@ -44,3 +44,15 @@ FROM fact_demographics f
 JOIN dim_state s ON f.state_id = s.state_id
 GROUP BY s.state_name
 ORDER BY avg_median_age DESC;
+
+-- ============================================
+-- Visualization 4: Income vs Population Scatter
+-- ============================================
+SELECT
+    s.state_name,
+    SUM(f.total_population) AS total_population,
+    ROUND(AVG(f.median_household_income), 0) AS avg_median_income
+FROM fact_demographics f
+JOIN dim_state s ON f.state_id = s.state_id
+GROUP BY s.state_name
+ORDER BY total_population DESC;
