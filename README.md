@@ -41,3 +41,15 @@ CENSUS_BLOCK_GROUP = "010010201001"
 | B01001e26 | Female Population |
 | B19013e1 | Median Household Income |
 | B19001e2-e17 | Income brackets |
+
+---
+
+## 2. ERD Diagram
+
+ERD diagram zobrazuje vztahy medzi zdrojovymi tabulkami v povodnej databaze SafeGraph.
+
+<p align="center">
+  <img src="img/ERD_schema.png" alt="ERD Diagram">
+  <br>
+  <em>Obrazok 1: Entity-Relationship Diagram zdrojovych dat</em>
+</p>
