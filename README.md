@@ -80,3 +80,105 @@ Star schema navrhnuty pre analyzu demografickych dat obsahuje 1 faktovu tabulku 
 | Tabulka | Popis | Pocet riadkov |
 |---------|-------|---------------|
 | `fact_demographics` | Demograficke metriky na urovni CBG | ~217,000 |
+
+---
+
+## 4. ETL Proces
+
+### 4.1 Extract (Staging)
+
+Extrahovanie dat zo zdrojovych tabuliek do staging vrstvy:
+
+```sql
+-- Staging: Population & Age
+CREATE OR REPLACE TABLE stg_population AS
+SELECT
+    CENSUS_BLOCK_GROUP,
+    B01001e1 AS total_population,
+    B01001e2 AS male_population,
+    B01001e26 AS female_population,
+    B01002e1 AS median_age
+FROM US_OPEN_CENSUS_DATA__NEIGHBORHOOD_INSIGHTS__FREE_DATASET.PUBLIC."2019_CBG_B01";
+
+-- Staging: Income
+CREATE OR REPLACE TABLE stg_income AS
+SELECT
+    CENSUS_BLOCK_GROUP,
+    B19013e1 AS median_household_income,
+    B19001e1 AS total_households
+FROM US_OPEN_CENSUS_DATA__NEIGHBORHOOD_INSIGHTS__FREE_DATASET.PUBLIC."2019_CBG_B19";
+```
+
+### 4.2 Transform (Dimenzie)
+
+Vytvorenie dimenzionalnych tabuliek:
+
+```sql
+-- Dimenzia: DIM_STATE (SCD Type 0)
+CREATE OR REPLACE TABLE dim_state AS
+SELECT
+    ROW_NUMBER() OVER (ORDER BY STATE_FIPS) AS state_id,
+    STATE_FIPS AS state_fips,
+    STATE AS state_abbr,
+    CASE STATE
+        WHEN 'CA' THEN 'California'
+        WHEN 'TX' THEN 'Texas'
+        -- ... dalsie staty
+    END AS state_name
+FROM stg_fips
+GROUP BY STATE_FIPS, STATE;
+
+-- Dimenzia: DIM_COUNTY (SCD Type 0)
+CREATE OR REPLACE TABLE dim_county AS
+SELECT
+    ROW_NUMBER() OVER (ORDER BY f.STATE_FIPS, f.COUNTY_FIPS) AS county_id,
+    f.STATE_FIPS || f.COUNTY_FIPS AS county_fips_full,
+    f.COUNTY AS county_name,
+    s.state_id
+FROM stg_fips f
+JOIN dim_state s ON f.STATE_FIPS = s.state_fips;
+```
+
+### 4.3 Load (Faktova tabulka s Window Functions)
+
+Vytvorenie faktovej tabulky s vyuzitim window functions:
+
+```sql
+CREATE OR REPLACE TABLE fact_demographics AS
+SELECT
+    ROW_NUMBER() OVER (ORDER BY cbg_id) AS fact_id,
+    b.cbg_id,
+    s.state_id,
+    c.county_id,
+    b.total_population,
+    b.median_age,
+    b.median_household_income,
+
+    -- WINDOW FUNCTIONS
+    -- 1. RANK() - Poradie podla populacie v ramci statu
+    RANK() OVER (
+        PARTITION BY s.state_id
+        ORDER BY b.total_population DESC
+    ) AS population_rank_in_state,
+
+    -- 2. PERCENT_RANK() - Percentil prijmu celonarodne
+    ROUND(PERCENT_RANK() OVER (
+        ORDER BY b.median_household_income NULLS FIRST
+    ), 4) AS income_percentile,
+
+    -- 3. SUM() OVER - Kumulativna populacia
+    SUM(b.total_population) OVER (
+        PARTITION BY s.state_id
+        ORDER BY b.cbg_id
+        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    ) AS cumulative_pop_in_state,
+
+    -- 4. AVG() OVER - Priemer prijmu v county
+    ROUND(AVG(b.median_household_income) OVER (
+        PARTITION BY c.county_id
+    ), 0) AS avg_income_in_county
+
+FROM base_data b
+JOIN dim_state s ON b.state_fips = s.state_fips
+JOIN dim_county c ON b.county_fips_full = c.county_fips_full;
+```
