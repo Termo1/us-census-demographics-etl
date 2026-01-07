@@ -169,3 +169,26 @@ INSERT INTO dim_income_bracket VALUES
 (14, 'B19001e15', 125000, 149999, '$125,000 - $149,999'),
 (15, 'B19001e16', 150000, 199999, '$150,000 - $199,999'),
 (16, 'B19001e17', 200000, NULL, '$200,000 or more');
+
+-- Dimenzia: DIM_AGE_GROUP (SCD Type 0)
+CREATE OR REPLACE TABLE dim_age_group (
+    age_group_id INT,
+    age_min INT,
+    age_max INT,
+    age_label VARCHAR(30),
+    life_stage VARCHAR(20)
+);
+
+INSERT INTO dim_age_group VALUES
+(1, 0, 4, 'Under 5', 'Child'),
+(2, 5, 9, '5-9', 'Child'),
+(3, 10, 14, '10-14', 'Child'),
+(4, 15, 17, '15-17', 'Teen'),
+(5, 18, 24, '18-24', 'Young Adult'),
+(6, 25, 34, '25-34', 'Adult'),
+(7, 35, 44, '35-44', 'Adult'),
+(8, 45, 54, '45-54', 'Adult'),
+(9, 55, 64, '55-64', 'Adult'),
+(10, 65, 74, '65-74', 'Senior'),
+(11, 75, 84, '75-84', 'Senior'),
+(12, 85, NULL, '85+', 'Senior');
